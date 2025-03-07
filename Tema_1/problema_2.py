@@ -34,6 +34,7 @@ def solve_n_queens(blocked_positions):
     model.AddAllDifferent([queens[i] - i for i in range(4)])
 
     for row, col in blocked_positions:
+        print(row, col)
         model.Add(queens[col] != row)
 
     solver = cp_model.CpSolver()
@@ -44,6 +45,7 @@ def solve_n_queens(blocked_positions):
     print(f"Total solutions found: {solver_printer.solution_count()}")
 
 if __name__ == "__main__":
-    # blocked = [(0, 1), (1, 0), (2, 3), (3, 1)]
+    blocked = [(0, 1), (2, 3)]
     blocked_two = []
     solve_n_queens(blocked_two)
+    solve_n_queens(blocked)

@@ -24,10 +24,9 @@ model_map_coloring.add(Belgium != Luxembourg)
 model_map_coloring.add(Switzerland != France)
 model_map_coloring.add(Switzerland != Germany)
 
-# Solve the model
+
 solution = model_map_coloring.solve()
 
-# Print results
 if solution:
     print("Solution found:")
     print(f"Belgium: {colors[solution.get_value(Belgium)]}")
