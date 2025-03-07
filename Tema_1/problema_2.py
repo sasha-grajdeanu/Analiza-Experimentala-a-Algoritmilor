@@ -12,7 +12,6 @@ class Printers(cp_model.CpSolverSolutionCallback):
 
         queen_positions = [self.Value(q) for q in self.__queens]
 
-        # Print the board
         for row in range(len(self.__queens)):
             for col in range(len(self.__queens)):
                 if queen_positions[col] == row:
