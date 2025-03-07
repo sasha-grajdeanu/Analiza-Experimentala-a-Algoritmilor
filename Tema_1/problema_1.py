@@ -1,13 +1,10 @@
 from docplex.cp.model import CpoModel
 
-# Create the model
 model_map_coloring = CpoModel()
 
-# Define colors
 colors = ["blue", "white", "yellow", "green"]
 num_colors = len(colors)
 
-# Define decision variables
 Belgium = model_map_coloring.integer_var(0, num_colors - 1, "Belgium")
 Denmark = model_map_coloring.integer_var(0, num_colors - 1, "Denmark")
 France = model_map_coloring.integer_var(0, num_colors - 1, "France")
@@ -16,7 +13,6 @@ Luxembourg = model_map_coloring.integer_var(0, num_colors - 1, "Luxembourg")
 Netherlands = model_map_coloring.integer_var(0, num_colors - 1, "Netherlands")
 Switzerland = model_map_coloring.integer_var(0, num_colors - 1, "Switzerland")
 
-# Constraints: Adjacent countries must have different colors
 model_map_coloring.add(Belgium != France)
 model_map_coloring.add(Belgium != Germany)
 model_map_coloring.add(Belgium != Netherlands)
