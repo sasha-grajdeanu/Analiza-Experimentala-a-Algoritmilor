@@ -1,6 +1,6 @@
-from pysat.solvers import Minisat22, Glucose4
-from pysat.card import CardEnc
-import time
+import multiprocessing
+from pysat.solvers import Minisat22
+from pysat.card import CardEnc, EncType
 
 
 class Hypergraph:
@@ -15,9 +15,9 @@ class Hypergraph:
         with open(filename, 'r') as file:
             for line in file:
                 line = line.strip()
-                if line.startswith("c"):
+                if line.startswith('c'):
                     continue
-                if line.startswith("p"):
+                if line.startswith('p'):
                     _, _, v, e = line.split()
                     self.num_vertices, self.num_edges = int(v), int(e)
                 else:
@@ -28,50 +28,55 @@ class Hypergraph:
     def to_cnf(self):
         return [list(edge) for edge in self.edges]
 
-    def solve_hitting_set(self, max_time_per_mid=5):
+    def _solve_with_timeout(self, solver, solution):
+        """Helper function to run the solver in a separate process."""
+        if solver.solve():
+            model = solver.get_model()
+            solution.append({abs(v) for v in model if v > 0 and v in self.vertices})
+
+    def solve_hitting_set(self, timeout=300.0):
         cnf = self.to_cnf()
-        left, right = 1, min(len(self.vertices), len(self.edges))  # Optimized binary search range
+        left, right = 1, min(len(self.vertices), len(self.edges))
         best_solution = None
 
         while left <= right:
             mid = (left + right) // 2
             print(f"Checking hitting set size ≤ {mid}...")
 
-            start_time = time.time()
-            solver = Glucose4() if mid > 50 else Minisat22()  # Choose faster solver
-
+            solver = Minisat22()
             for clause in cnf:
                 solver.add_clause(clause)
 
-            encoding_type = 2 if len(self.vertices) > 100 else 1
-            at_most_k = CardEnc.atmost(lits=list(self.vertices), bound=mid, encoding=encoding_type)
-
+            at_most_k = CardEnc.atmost(lits=list(self.vertices), bound=mid, encoding=EncType.seqcounter)
             for clause in at_most_k.clauses:
                 solver.add_clause(clause)
 
-            # Solve with a timeout condition
-            solved = solver.solve_limited(expect_interrupt=True)  # Non-blocking solve
-            elapsed = time.time() - start_time
+            solution = multiprocessing.Manager().list()  # Shared list for storing the solution
+            process = multiprocessing.Process(target=self._solve_with_timeout, args=(solver, solution))
+            process.start()
+            process.join(timeout)
 
-            if elapsed > max_time_per_mid:  # If mid is taking too long, increase `mid`
-                print(f"Skipping mid={mid} (too slow: {elapsed:.2f}s)")
-                left = mid + 1
+            if process.is_alive():
+                print(f"Timeout exceeded ({timeout}s). Increasing hitting set size...")
+                process.terminate()
+                process.join()
                 solver.delete()
-                continue
+                left = mid + 1  # Increase lower bound
+                continue  # Skip further processing
 
-            if solved:
-                model = solver.get_model()
-                hitting_set = {abs(v) for v in model if v > 0 and v in self.vertices}
-                best_solution = hitting_set
-                print(f"✅ Found solution with {len(hitting_set)} elements: {hitting_set}")
+            if solution:
+                best_solution = solution[0]
+                print(f"Found solution with {len(best_solution)} elements: {best_solution}")
                 right = mid - 1
             else:
                 left = mid + 1
 
-            solver.delete()  # Free up memory
+            solver.delete()
 
         return best_solution
 
     def verify_solution(self, hitting_set):
-        return all(any(vertex in hitting_set for vertex in edge) for edge in self.edges)
-
+        for edge in self.edges:
+            if not any(vertex in hitting_set for vertex in edge):
+                return False
+        return True
