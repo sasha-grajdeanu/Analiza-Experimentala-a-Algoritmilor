@@ -29,7 +29,6 @@ class Hypergraph:
         return [list(edge) for edge in self.edges]
 
     def _solve_with_timeout(self, solver, solution):
-        """Helper function to run the solver in a separate process."""
         if solver.solve():
             model = solver.get_model()
             solution.append({abs(v) for v in model if v > 0 and v in self.vertices})
@@ -51,7 +50,7 @@ class Hypergraph:
             for clause in at_most_k.clauses:
                 solver.add_clause(clause)
 
-            solution = multiprocessing.Manager().list()  # Shared list for storing the solution
+            solution = multiprocessing.Manager().list()
             process = multiprocessing.Process(target=self._solve_with_timeout, args=(solver, solution))
             process.start()
             process.join(timeout)
@@ -61,8 +60,8 @@ class Hypergraph:
                 process.terminate()
                 process.join()
                 solver.delete()
-                left = mid + 1  # Increase lower bound
-                continue  # Skip further processing
+                left = mid + 1
+                continue
 
             if solution:
                 best_solution = solution[0]
@@ -74,6 +73,27 @@ class Hypergraph:
             solver.delete()
 
         return best_solution
+
+    def solve_greedy(self):
+        remaining_sets = [set(edge) for edge in self.edges]
+        hitting_set = set()
+
+        while remaining_sets:
+            element_counts = {}
+            for s in remaining_sets:
+                for element in s:
+                    element_counts[element] = element_counts.get(element, 0) + 1
+
+            if not element_counts:
+                break
+
+            best_element = max(element_counts, key=element_counts.get)
+            hitting_set.add(best_element)
+
+            remaining_sets = [s for s in remaining_sets if best_element not in s]
+
+        return hitting_set
+
 
     def verify_solution(self, hitting_set):
         for edge in self.edges:
