@@ -5,8 +5,8 @@ from pysat.card import CardEnc, EncType
 
 class Hypergraph:
     def __init__(self, filename):
-        self.num_edges = None
-        self.num_vertices = None
+        self.num_edges = 0
+        self.num_vertices = 0
         self.vertices = set()
         self.edges = []
         self.read_hypergraph(filename)
@@ -25,52 +25,58 @@ class Hypergraph:
                     self.edges.append(edge)
                     self.vertices.update(edge)
 
-    def to_cnf(self):
-        return [list(edge) for edge in self.edges]
+    def _solve_with_timeout(self, cnf_clauses, vertex_list, bound, return_dict):
+        solver = Minisat22()
+        for clause in cnf_clauses:
+            solver.add_clause(clause)
 
-    def _solve_with_timeout(self, solver, solution):
+        # Add cardinality constraint: at most 'bound' vertices selected
+        card = CardEnc.atmost(lits=vertex_list, bound=bound, encoding=EncType.seqcounter)
+        for clause in card.clauses:
+            solver.add_clause(clause)
+
         if solver.solve():
             model = solver.get_model()
-            solution.append({abs(v) for v in model if v > 0 and v in self.vertices})
+            solution = {v for v in vertex_list if v in model}
+            return_dict["solution"] = solution
+        solver.delete()
 
     def solve_hitting_set(self, timeout=300.0):
-        cnf = self.to_cnf()
-        left, right = 1, min(len(self.vertices), len(self.edges))
+        cnf = [list(edge) for edge in self.edges]
+        vertex_list = sorted(self.vertices)
+
+        left, right = 1, min(len(vertex_list), len(self.edges))
         best_solution = None
 
         while left <= right:
             mid = (left + right) // 2
-            print(f"Checking hitting set size ≤ {mid}...")
+            print(f"Trying hitting set size ≤ {mid}...")
 
-            solver = Minisat22()
-            for clause in cnf:
-                solver.add_clause(clause)
+            manager = multiprocessing.Manager()
+            return_dict = manager.dict()
 
-            at_most_k = CardEnc.atmost(lits=list(self.vertices), bound=mid, encoding=EncType.seqcounter)
-            for clause in at_most_k.clauses:
-                solver.add_clause(clause)
-
-            solution = multiprocessing.Manager().list()
-            process = multiprocessing.Process(target=self._solve_with_timeout, args=(solver, solution))
+            process = multiprocessing.Process(
+                target=self._solve_with_timeout,
+                args=(cnf, vertex_list, mid, return_dict)
+            )
             process.start()
             process.join(timeout)
 
             if process.is_alive():
-                print(f"Timeout exceeded ({timeout}s). Increasing hitting set size...")
+                print(f"Timeout after {timeout}s. Increasing bound...")
                 process.terminate()
                 process.join()
-                solver.delete()
                 left = mid + 1
                 continue
 
+            solution = return_dict.get("solution", None)
             if solution:
-                best_solution = solution[0]
-                print(f"Found solution with {len(best_solution)} elements: {best_solution}")
+                best_solution = solution
+                print(f"✔️ Found solution with {len(solution)} vertices: {solution}")
                 right = mid - 1
             else:
+                print("❌ No solution found. Increasing size...")
                 left = mid + 1
-
-            solver.delete()
 
         return best_solution
 

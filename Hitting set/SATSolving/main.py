@@ -1,11 +1,54 @@
+import os
+import time
 from hypergraph import Hypergraph
 
-if __name__ == "__main__":
-    hg = Hypergraph("bremen_subgraph_300.hgr")
-    # optimal_hitting_set = hg.solve_hitting_set()
-    optimal_hitting_set = hg.solve_greedy()
-    print("Optimal Hitting Set:", optimal_hitting_set)
+RESULTS_FILE = "results.txt"
 
-    is_valid = hg.verify_solution(optimal_hitting_set)
-    print("Is the solution valid?", is_valid)
-    print(len(optimal_hitting_set))
+def log_result(text):
+    with open(RESULTS_FILE, "a") as f:
+        f.write(text + "\n")
+
+def main():
+    # Clear the previous results
+    open(RESULTS_FILE, "w").close()
+
+    for filename in os.listdir("."):
+        if filename.startswith("bremen_subgraph_1") and filename.endswith(".hgr"):
+            print(f"\nProcessing {filename}...")
+            log_result(f"==== {filename} ====")
+
+            hg = Hypergraph(filename)
+
+            # --- Greedy Method ---
+            start = time.time()
+            greedy_solution = hg.solve_greedy()
+            greedy_time = time.time() - start
+            is_greedy_valid = hg.verify_solution(greedy_solution)
+
+            log_result(f"Greedy Hitting Set: {sorted(greedy_solution)}")
+            log_result(f"Greedy Time: {greedy_time:.2f}s")
+            log_result(f"Greedy Valid: {is_greedy_valid}")
+            log_result(f"Greedy Size: {len(greedy_solution)}")
+
+            # --- SAT Method ---
+            start = time.time()
+            sat_solution = hg.solve_hitting_set(timeout=300)
+            sat_time = time.time() - start
+            is_sat_valid = hg.verify_solution(sat_solution)
+
+            log_result(f"SAT Hitting Set: {sorted(sat_solution)}")
+            log_result(f"SAT Time: {sat_time:.2f}s")
+            log_result(f"SAT Valid: {is_sat_valid}")
+            log_result(f"SAT Size: {len(sat_solution)}")
+
+            # --- Summary ---
+            optimal = (
+                "SAT"
+                if len(sat_solution) < len(greedy_solution)
+                else "Greedy"
+            )
+            log_result(f"Best Method: {optimal}")
+            log_result("")
+
+if __name__ == "__main__":
+    main()
