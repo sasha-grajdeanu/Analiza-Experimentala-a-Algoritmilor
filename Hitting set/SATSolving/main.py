@@ -9,11 +9,10 @@ def log_result(text):
         f.write(text + "\n")
 
 def main():
-    # Clear the previous results
     open(RESULTS_FILE, "w").close()
 
     for filename in os.listdir("."):
-        if filename.startswith("bremen_subgraph_1") and filename.endswith(".hgr"):
+        if filename.startswith("bremen_") and filename.endswith(".hgr"):
             print(f"\nProcessing {filename}...")
             log_result(f"==== {filename} ====")
 
