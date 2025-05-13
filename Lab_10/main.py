@@ -5,6 +5,8 @@ from scipy.stats import pearsonr
 
 df = pd.read_csv("data/chile.csv")
 
+#exercitiul 1
+
 print(df.head())
 print(df.shape)
 print(df.info())
@@ -19,6 +21,7 @@ print(df.groupby("income")["age"].mean())
 
 print("groupby:", df.groupby(["education", "vote"])["age"].mean())
 
+#exercitul 2
 
 print("mean of income ", df["income"].mean())
 print("var of income ", df["income"].var())
@@ -33,6 +36,8 @@ plt.show()
 y = list(df["population"])
 plt.boxplot(y)
 plt.show()
+
+#exercitiul 3
 
 print("Covariance:\n", df[["age", "income"]].cov())
 print("Correlation:\n", df[["age", "income"]].corr())
