@@ -2,7 +2,7 @@ import os
 import time
 from hypergraph import Hypergraph
 
-RESULTS_FILE = "results_new.txt"
+RESULTS_FILE = "results.txt"
 
 def log_result(text):
     with open(RESULTS_FILE, "a") as f:
