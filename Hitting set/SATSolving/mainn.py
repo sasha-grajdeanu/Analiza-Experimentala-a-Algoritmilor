@@ -1,6 +1,7 @@
 import os
 import time
 from hypergraph import Hypergraph
+from hypergraph_upgrade import Hypergraph_Upgraded
 
 RESULTS_FILE = "results_new.txt"
 
@@ -16,7 +17,7 @@ def main():
             print(f"\nProcessing {filename}...")
             log_result(f"==== {filename} ====")
 
-            hg = Hypergraph(filename)
+            hg = Hypergraph_Upgraded(filename)
 
             # --- Greedy Method ---
             start = time.time()
@@ -31,7 +32,7 @@ def main():
 
             # --- SAT Method ---
             start = time.time()
-            sat_solution = hg.solve_hitting_set(timeout=300)
+            sat_solution = hg.solve_hitting_set()
             sat_time = time.time() - start
             is_sat_valid = hg.verify_solution(sat_solution)
 

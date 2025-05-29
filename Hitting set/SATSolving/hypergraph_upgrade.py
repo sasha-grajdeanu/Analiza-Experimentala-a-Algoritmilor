@@ -1,15 +1,19 @@
 import multiprocessing
 from pysat.solvers import Minisat22
 from pysat.card import CardEnc, EncType
+import math
 
 
-class Hypergraph:
+class Hypergraph_Upgraded:
     def __init__(self, filename):
         self.num_edges = 0
         self.num_vertices = 0
         self.vertices = set()
         self.edges = []
+        self.cnf_clauses = []  # Store precomputed CNF
+        self.vertex_list = []
         self.read_hypergraph(filename)
+        self._prepare_cnf()
 
     def read_hypergraph(self, filename):
         with open(filename, 'r') as file:
@@ -25,63 +29,27 @@ class Hypergraph:
                     self.edges.append(edge)
                     self.vertices.update(edge)
 
-    def _solve_with_timeout(self, cnf_clauses, vertex_list, bound, return_dict):
+    def _prepare_cnf(self):
+        self.cnf_clauses = [list(edge) for edge in self.edges]
+        self.vertex_list = sorted(self.vertices)
+
+    def _solve_bound(self, bound, timeout, return_dict):
         solver = Minisat22()
-        for clause in cnf_clauses:
+        for clause in self.cnf_clauses:
             solver.add_clause(clause)
 
-        # Add cardinality constraint: at most 'bound' vertices selected
-        card = CardEnc.atmost(lits=vertex_list, bound=bound, encoding=EncType.seqcounter)
+        card = CardEnc.atmost(lits=self.vertex_list, bound=bound, encoding=EncType.seqcounter)
         for clause in card.clauses:
             solver.add_clause(clause)
 
         if solver.solve():
             model = solver.get_model()
-            solution = {v for v in vertex_list if v in model}
-            return_dict["solution"] = solution
+            solution = {v for v in self.vertex_list if v in model}
+            return_dict[bound] = solution
         solver.delete()
 
-    def solve_hitting_set(self, timeout=300.0):
-        cnf = [list(edge) for edge in self.edges]
-        vertex_list = sorted(self.vertices)
-
-        left, right = 1, min(len(vertex_list), len(self.edges))
-        best_solution = None
-
-        while left <= right:
-            mid = (left + right) // 2
-            print(f"Trying hitting set size ≤ {mid}...")
-
-            manager = multiprocessing.Manager()
-            return_dict = manager.dict()
-
-            process = multiprocessing.Process(
-                target=self._solve_with_timeout,
-                args=(cnf, vertex_list, mid, return_dict)
-            )
-            process.start()
-            process.join(timeout)
-
-            if process.is_alive():
-                print(f"Timeout after {timeout}s. Increasing bound...")
-                process.terminate()
-                process.join()
-                left = mid + 1
-                continue
-
-            solution = return_dict.get("solution", None)
-            if solution:
-                best_solution = solution
-                print(f"✔️ Found solution with {len(solution)} vertices: {solution}")
-                right = mid - 1
-            else:
-                print("❌ No solution found. Increasing size...")
-                left = mid + 1
-
-        return best_solution
-
-    def solve_hitting_set_up(self, initial_timeout=60.0, max_timeout=300.0):
-        low, high = 1, min(len(self.vertices), len(self.edges))
+    def solve_hitting_set(self, initial_timeout=60.0, max_timeout=300.0):
+        low, high = 1, min(len(self.vertex_list), len(self.edges))
         best_solution = None
         current_timeout = initial_timeout
         attempts = 0
@@ -94,7 +62,7 @@ class Hypergraph:
             return_dict = manager.dict()
 
             process = multiprocessing.Process(
-                target=self._solve_with_timeout(),
+                target=self._solve_bound,
                 args=(mid, current_timeout, return_dict)
             )
             process.start()
@@ -105,6 +73,8 @@ class Hypergraph:
                 process.terminate()
                 process.join()
                 low = mid + 1
+
+                # ▶️ Crește atât growth rate-ul, cât și timeout-ul
                 attempts += 1
                 growth_rate = min(1.2 + 0.1 * attempts, 1.6)
                 current_timeout = min(initial_timeout * (growth_rate ** attempts), max_timeout)
@@ -120,6 +90,7 @@ class Hypergraph:
                 low = mid + 1
 
         return best_solution
+
 
     def solve_greedy(self):
         remaining_sets = [set(edge) for edge in self.edges]
@@ -140,7 +111,6 @@ class Hypergraph:
             remaining_sets = [s for s in remaining_sets if best_element not in s]
 
         return hitting_set
-
 
     def verify_solution(self, hitting_set):
         for edge in self.edges:
