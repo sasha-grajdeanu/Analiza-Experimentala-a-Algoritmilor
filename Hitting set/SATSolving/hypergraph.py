@@ -80,46 +80,6 @@ class Hypergraph:
 
         return best_solution
 
-    def solve_hitting_set_up(self, initial_timeout=60.0, max_timeout=300.0):
-        low, high = 1, min(len(self.vertices), len(self.edges))
-        best_solution = None
-        current_timeout = initial_timeout
-        attempts = 0
-
-        while low <= high:
-            mid = (low + high) // 2
-            print(f"Trying hitting set size ≤ {mid} with timeout {current_timeout:.1f}s...")
-
-            manager = multiprocessing.Manager()
-            return_dict = manager.dict()
-
-            process = multiprocessing.Process(
-                target=self._solve_with_timeout(),
-                args=(mid, current_timeout, return_dict)
-            )
-            process.start()
-            process.join(current_timeout)
-
-            if process.is_alive():
-                print("⏱️ Timeout. Increasing timeout and lower bound.")
-                process.terminate()
-                process.join()
-                low = mid + 1
-                attempts += 1
-                growth_rate = min(1.2 + 0.1 * attempts, 1.6)
-                current_timeout = min(initial_timeout * (growth_rate ** attempts), max_timeout)
-                continue
-
-            solution = return_dict.get(mid, None)
-            if solution:
-                best_solution = solution
-                print(f"✔️ Found solution with {len(solution)} vertices: {solution}")
-                high = mid - 1
-            else:
-                print("❌ No solution found. Trying larger bound...")
-                low = mid + 1
-
-        return best_solution
 
     def solve_greedy(self):
         remaining_sets = [set(edge) for edge in self.edges]

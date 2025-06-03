@@ -3,7 +3,7 @@ import time
 from hypergraph import Hypergraph
 from hypergraph_upgrade import Hypergraph_Upgraded
 
-RESULTS_FILE = "results_new.txt"
+RESULTS_FILE = "results_cadical.txt"
 
 def log_result(text):
     with open(RESULTS_FILE, "a") as f:

@@ -1,5 +1,5 @@
 import multiprocessing
-from pysat.solvers import Minisat22
+from pysat.solvers import Minisat22, Solver
 from pysat.card import CardEnc, EncType
 import math
 
@@ -34,7 +34,7 @@ class Hypergraph_Upgraded:
         self.vertex_list = sorted(self.vertices)
 
     def _solve_bound(self, bound, timeout, return_dict):
-        solver = Minisat22()
+        solver = Solver(name='cadical195')
         for clause in self.cnf_clauses:
             solver.add_clause(clause)
 
